@@ -24,7 +24,27 @@ To start Tama Websocket, run:
 ./tama_websocket
 ```
 
-The can be accessed at <ws://localhost:8080>.
+The server can be accessed at <ws://localhost:8080>.
+
+## Docker
+
+Build
+
+```shell
+docker build . -t tama_websocket
+```
+
+Run
+
+```shell
+docker run \
+  --rm --init \
+  -v ./rom.bin:/app/rom.bin \
+  -p "127.0.0.1:8080:8080"
+  tama_websocket
+```
+
+The server can be accessed at <ws://localhost:8080>.
 
 ## Websocket API
 

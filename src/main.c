@@ -34,7 +34,6 @@
 #include "program.h"
 #include "base64singleline.h"
 
-#define WS_HOST 			"127.0.0.1"
 #define WS_PORT 			8080
 #define FRM_TXT  1
 #define FRM_BIN  2
@@ -348,17 +347,20 @@ void onmessage(ws_cli_conn_t client,
 	handle_ws_message(msg);
 }
 
-struct ws_server ws = {
-	.host = WS_HOST,
-	.port = WS_PORT,
-	.thread_loop   = 1,
-	.timeout_ms    = 1000,
-	.evs.onopen    = &onopen,
-	.evs.onclose   = &onclose,
-	.evs.onmessage = &onmessage
-};
-
 int main (int argc, const char * argv[]) {
+
+	const char *WS_HOST = getenv("TAMA_WS_HOST");
+	WS_HOST = (WS_HOST != NULL) ? WS_HOST: "127.0.0.1";
+
+	struct ws_server ws = {
+		.host = WS_HOST,
+		.port = WS_PORT,
+		.thread_loop   = 1,
+		.timeout_ms    = 1000,
+		.evs.onopen    = &onopen,
+		.evs.onclose   = &onclose,
+		.evs.onmessage = &onmessage
+	};
 
 	ws_socket(&ws);
 
@@ -366,7 +368,7 @@ int main (int argc, const char * argv[]) {
 
     tamalib_register_hal(&hal);
     tamalib_init(g_program, NULL, 1000000);
-	printf("Starting emulation\n");
+	fprintf(stderr, "Starting emulation\n");
     tamalib_mainloop();
     tamalib_release();
 

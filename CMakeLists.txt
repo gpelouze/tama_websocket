@@ -48,4 +48,4 @@ add_executable(tama_websocket
     src/program.c
     src/program.h)
 
-target_link_libraries(tama_websocket ${SDL2_LIBRARIES} cjson)
+target_link_libraries(tama_websocket SDL2 cjson)
