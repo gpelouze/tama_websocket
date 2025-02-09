@@ -1,0 +1,6 @@
+[submodule "src/tamalib"]
+	path = src/tamalib
+	url = git@github.com:jcrona/tamalib.git
+[submodule "src/wsServer"]
+	path = src/wsServer
+	url = git@github.com:Theldus/wsServer.git
