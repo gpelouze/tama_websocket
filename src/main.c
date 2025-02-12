@@ -150,14 +150,27 @@ unsigned char * bool_t_to_base64(const bool_t *src, const size_t len,
 
 static void hal_update_screen(void)
 {
+	/* This uses a const msg_size allow for a static previous_msg.
+	 * The message size is calculated as follows:
+	 * - 88 chars for the matrix (512 bits base64-encoded)
+	 * - 4 chars for the icons (8 bits base64-encoded)
+	 * - 31 chars json overhead (length of msg_template, minus the two '%s')
+	 * - 1 string terminator
+	 *
+	 * The number of chars for base64-encoded arrays is given by:
+	 * ceil(n_bits / 8 / 3) * 4
+	 */
+	const size_t msg_size = 124;
+	char msg[124] = {};
+	static char previous_msg[124] = {};
+	char msg_template[] = "{\"t\":\"scr\",\"e\":{\"m\":\"%s\",\"i\":\"%s\"}}";
 	unsigned char *matrix_b64 = bool_t_to_base64((bool_t *)matrix_buffer, LCD_HEIGHT * LCD_WIDTH, NULL);
 	unsigned char *icon_b64 = bool_t_to_base64(icon_buffer, ICON_NUM, NULL);
-	char msg_template[] = "{\"t\":\"scr\",\"e\":{\"m\":\"%s\",\"i\":\"%s\"}}";
-	size_t msg_size = snprintf(NULL, 0, msg_template, matrix_b64, icon_b64);
-	msg_size++;
-	char *msg = (char *)malloc(msg_size);
 	snprintf(msg, msg_size, msg_template, matrix_b64, icon_b64);
-	ws_sendframe_bcast(WS_PORT, msg, msg_size, FRM_TXT);
+	if (strcmp(msg, previous_msg)) {
+        ws_sendframe_bcast(WS_PORT, msg, msg_size, FRM_TXT);
+        strcpy(previous_msg, msg);
+	}
 }
 
 static void hal_set_lcd_matrix(u8_t x, u8_t y, bool_t val)
