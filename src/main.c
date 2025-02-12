@@ -140,16 +140,10 @@ unsigned char * bool_t_to_base64(const bool_t *src, const size_t len,
 	size_t new_len = len / 8;
 	unsigned char * new_arr = malloc(new_len);
 	for (int i = 0; i < new_len; i++) {
-		int k = i * 8;
-		new_arr[i] =
-			src[k+0] << 8 |
-			src[k+1] << 6 |
-			src[k+2] << 5 |
-			src[k+3] << 4 |
-			src[k+4] << 3 |
-			src[k+5] << 2 |
-			src[k+6] << 1 |
-			src[k+7];
+		new_arr[i] = 0;
+		for (int j = 0; j < 8; j++) {
+            new_arr[i] |= src[i*8+(7-j)] << j;
+		}
 	}
 	return base64singleline_encode(new_arr, new_len, out_len);
 }

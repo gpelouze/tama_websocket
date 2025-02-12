@@ -84,32 +84,35 @@ Example:
 }
 ```
 
-Here is an example Python function for decoding the base-64 encoded
+Here are example functions for decoding the base-64 encoded arrays, in Python:
 
 ```Python
 import base64
 import numpy as np
 
-
 def b64_to_bits_arr(s):
     decoded = base64.decodebytes(s.encode())
     arr = np.array(bytearray(decoded))
-    arr = np.unpackbits(arr)
-    return arr.view(bool)
+    return np.unpackbits(arr)
 
+b64_to_bits_arr("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8EAAAWkIAAH4YAABmpAAAZiUAADwYAAAAQgAAAAgA==")
+```
 
-def decode_scr(scr):
-    m = b64_to_bits_arr(scr['m']).reshape((16, 32))
-    i = b64_to_bits_arr(scr['i'])
-    return m, i
+and in JavaScript:
 
-
-decode_scr(
-    {
-        "m": "AEEMAAEqUgABIlJ3ASJSVQEiUlUBKlJVAEEMdwAAAAAPAAAAEQAZXB8AJQgRACEIAAAZSBsABQgVACUIFQAZSA==",
-        "i": "AA=="
+```javascript
+function b64ToBitsArr(s) {
+    const byteArr  = Uint8Array.fromBase64(s);
+    const bitArr = new Uint8Array(byteArr.length * 8);
+    for (let i = 0; i < s.length; i++) {
+        for (let j = 0; j < 8; j++) {
+            bitArr[i*8+(7-j)] = (byteArr[i] >> j) & 0x1;
         }
-    )
+    }
+    return bitArr;
+}
+
+b64ToBitsArr("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8EAAAWkIAAH4YAABmpAAAZiUAADwYAAAAQgAAAAgA==")
 ```
 
 #### `frq` - frequency playback
