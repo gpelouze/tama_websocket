@@ -148,7 +148,7 @@ unsigned char * bool_t_to_base64(const bool_t *src, const size_t len,
 	return base64singleline_encode(new_arr, new_len, out_len);
 }
 
-static void hal_update_screen(void)
+static void update_screen(const bool skip_identical_frames)
 {
 	/* This uses a const msg_size allow for a static previous_msg.
 	 * The message size is calculated as follows:
@@ -167,10 +167,15 @@ static void hal_update_screen(void)
 	unsigned char *matrix_b64 = bool_t_to_base64((bool_t *)matrix_buffer, LCD_HEIGHT * LCD_WIDTH, NULL);
 	unsigned char *icon_b64 = bool_t_to_base64(icon_buffer, ICON_NUM, NULL);
 	snprintf(msg, msg_size, msg_template, matrix_b64, icon_b64);
-	if (strcmp(msg, previous_msg)) {
+	if (!skip_identical_frames | strcmp(msg, previous_msg) != 0) {
         ws_sendframe_bcast(WS_PORT, msg, msg_size, FRM_TXT);
         strcpy(previous_msg, msg);
 	}
+}
+
+static void hal_update_screen(void)
+{
+	update_screen(true);
 }
 
 static void hal_set_lcd_matrix(u8_t x, u8_t y, bool_t val)
@@ -231,6 +236,7 @@ void onopen(ws_cli_conn_t client)
 {
 	((void)client);
 	printf("Connected!\n");
+	update_screen(false);
 }
 
 void onclose(ws_cli_conn_t  client)
