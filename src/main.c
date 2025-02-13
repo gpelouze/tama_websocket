@@ -86,7 +86,7 @@ static void hal_log(log_level_t level, char *buff, ...)
 	msg_size++;
 	char *msg = (char *)malloc(msg_size);
 	snprintf(msg, msg_size, msg_template, level, buff);
-	ws_sendframe_bcast(WS_PORT, msg, msg_size, FRM_TXT);
+	ws_sendframe_bcast(WS_PORT, msg, msg_size - 1, FRM_TXT);
 
 	va_end(arglist);
 }
@@ -168,7 +168,7 @@ static void update_screen(const bool skip_identical_frames)
 	unsigned char *icon_b64 = bool_t_to_base64(icon_buffer, ICON_NUM, NULL);
 	snprintf(msg, msg_size, msg_template, matrix_b64, icon_b64);
 	if (!skip_identical_frames | strcmp(msg, previous_msg) != 0) {
-        ws_sendframe_bcast(WS_PORT, msg, msg_size, FRM_TXT);
+        ws_sendframe_bcast(WS_PORT, msg, msg_size - 1, FRM_TXT);
         strcpy(previous_msg, msg);
 	}
 }
@@ -205,7 +205,7 @@ static void hal_play_frequency(bool_t en)
 		msg_size++;
 		char *msg = (char *)malloc(msg_size);
 		snprintf(msg, msg_size, msg_template, current_freq, sin_pos, is_audio_playing);
-		ws_sendframe_bcast(WS_PORT, msg, msg_size, FRM_TXT);
+		ws_sendframe_bcast(WS_PORT, msg, msg_size - 1, FRM_TXT);
 	}
 }
 
