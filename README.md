@@ -55,13 +55,15 @@ JSON-encoded events are sent and received through the websocket. Events have exa
 
 Events summary:
 
-| Event type | Sender | Description        |
-|------------|--------|--------------------|
-| `scr`      | server | screen update      |
-| `frq`      | server | frequency playback |
-| `log`      | server | log message        |
-| `end`      | server | emulation end      |
-| `btn`      | client | button press       |
+| Event type | Sender | Description         |
+|------------|--------|---------------------|
+| `scr`      | server | screen update       |
+| `frq`      | server | frequency playback  |
+| `log`      | server | log message         |
+| `end`      | server | emulation end       |
+| `btn`      | client | button press        |
+| `mod`      | client | execution mode      |
+| `spd`      | client | execution speed     |
 
 ### Server events
 
@@ -193,6 +195,27 @@ Example:
   }
 }
 ```
+
+#### `mod` - execution mode
+
+Attributes:
+
+- `m`: mode
+  - 0: pause
+  - 1: run / resume
+  - 2: enter step mode
+  - 3: execute next instruction or call
+  - 4: pause after next call 
+  - 5: pause after next return
+
+#### `spd` - execution speed
+
+Attributes:
+
+- `s`: speed
+  - 0: unlimited
+  - 1: 1x
+  - 10: 10x
 
 ## License
 

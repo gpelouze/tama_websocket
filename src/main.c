@@ -56,6 +56,12 @@ static bool_t btn_buffer[4] = {0};
 
 static u8_t log_levels = LOG_ERROR | LOG_INFO;
 
+typedef enum {
+	SPEED_UNLIMITED = 0,
+	SPEED_1X = 1,
+	SPEED_10X = 10,
+} emulation_speed_t;
+
 static void hal_halt(void)
 {
 	char msg[] = "{\"t\":\"end\",\"e\":{}}";
@@ -254,12 +260,12 @@ int handle_ws_event_btn(const cJSON *json) {
 	b = cJSON_GetObjectItemCaseSensitive(json, "b");
 	if (b == NULL) {
 		fprintf(stderr, "btn event: no item \"b\"\n");
-		status = 0;
+		status = 1;
 		goto end;
 	}
 	if (!cJSON_IsNumber(b)) {
 		fprintf(stderr, "btn event: item \"b\" has invalid type\n");
-    	status = 0;
+    	status = 1;
     	goto end;
     }
 	const int btn_code = b->valueint;
@@ -268,34 +274,96 @@ int handle_ws_event_btn(const cJSON *json) {
 	{
 		fprintf(stderr, "btn event: invalid button code \"b\": %d\n",
 		        btn_code);
-    	status = 0;
-    	goto end;
+		status = 1;
+		goto end;
 	}
 
 	// button state
     s = cJSON_GetObjectItemCaseSensitive(json, "s");
 	if (s == NULL) {
 		fprintf(stderr, "btn event: no item \"s\"\n");
-		status = 0;
+		status = 1;
 		goto end;
 	}
 	if (!cJSON_IsNumber(s)) {
 		fprintf(stderr, "btn event: item \"s\" has invalid type\n");
-    	status = 0;
-    	goto end;
-    }
+		status = 1;
+		goto end;
+	}
 	const int btn_status = s->valueint;
 	if (!(btn_status == BTN_STATE_PRESSED || btn_status == BTN_STATE_RELEASED)) {
 		fprintf(stderr, "btn event: invalid button status \"s\": %d\n",
 		        btn_status);
-    	status = 0;
-    	goto end;
+		status = 1;
+		goto end;
 	}
 
 	btn_buffer[btn_code] = btn_status;
 
 	end:
-		return 0;
+		return status;
+}
+
+int handle_ws_event_mod(const cJSON *json) {
+	const cJSON *m = NULL;
+	int status = 0;
+
+	m = cJSON_GetObjectItemCaseSensitive(json, "m");
+	if (m == NULL) {
+		fprintf(stderr, "mod event: no item \"m\"\n");
+		status = 1;
+		goto end;
+	}
+	if (!cJSON_IsNumber(m)) {
+		fprintf(stderr, "mod event: item \"m\" has invalid type\n");
+		status = 1;
+		goto end;
+	}
+	const int mod_code = m->valueint;
+	if (!(mod_code == EXEC_MODE_PAUSE || mod_code == EXEC_MODE_RUN ||
+		  mod_code == EXEC_MODE_STEP || mod_code == EXEC_MODE_NEXT ||
+		  mod_code == EXEC_MODE_TO_CALL || mod_code == EXEC_MODE_TO_RET))
+	{
+		fprintf(stderr, "mod event: invalid button code \"m\": %d\n",
+				mod_code);
+		status = 1;
+		goto end;
+	}
+
+	tamalib_set_exec_mode(mod_code);
+
+	end:
+		return status;
+}
+
+int handle_ws_event_spd(const cJSON *json) {
+	const cJSON *s = NULL;
+	int status = 0;
+
+	s = cJSON_GetObjectItemCaseSensitive(json, "s");
+	if (s == NULL) {
+		fprintf(stderr, "spd event: no item \"s\"\n");
+		status = 1;
+		goto end;
+	}
+	if (!cJSON_IsNumber(s)) {
+		fprintf(stderr, "spd event: item \"s\" has invalid type\n");
+		status = 1;
+		goto end;
+	}
+	const int spd_code = s->valueint;
+	if (!(spd_code == SPEED_UNLIMITED || spd_code == SPEED_1X || spd_code == SPEED_10X))
+	{
+		fprintf(stderr, "spd event: invalid button code \"s\": %d\n",
+				spd_code);
+		status = 1;
+		goto end;
+	}
+
+	tamalib_set_speed(spd_code);
+
+	end:
+		return status;
 }
 
 int handle_ws_message(const unsigned char *msg)
@@ -311,7 +379,7 @@ int handle_ws_message(const unsigned char *msg)
         {
             fprintf(stderr, "WS message: JSON error before: %s\n", error_ptr);
         }
-        status = 0;
+        status = 1;
         goto end;
     }
 
@@ -319,12 +387,12 @@ int handle_ws_message(const unsigned char *msg)
     t = cJSON_GetObjectItemCaseSensitive(json, "t");
 	if (t == NULL) {
 		fprintf(stderr, "WS message: no item \"t\"\n");
-		status = 0;
+		status = 1;
 		goto end;
 	}
     if (!(cJSON_IsString(t) && (t->valuestring != NULL))) {
 		fprintf(stderr, "WS message: item \"t\" has invalid type\n");
-    	status = 0;
+    	status = 1;
     	goto end;
     }
 
@@ -332,12 +400,18 @@ int handle_ws_message(const unsigned char *msg)
     e = cJSON_GetObjectItemCaseSensitive(json, "e");
 	if (e == NULL) {
 		fprintf(stderr, "WS message: no item \"e\"\n");
-		status = 0;
+		status = 1;
 		goto end;
 	}
 
 	if (!strcmp(t->valuestring, "btn")) {
 		handle_ws_event_btn(e);
+	}
+	else if (!strcmp(t->valuestring, "mod")) {
+		handle_ws_event_mod(e);
+	}
+	else if (!strcmp(t->valuestring, "spd")) {
+		handle_ws_event_spd(e);
 	}
 	else {
 		fprintf(stderr, "WS message: unknown event type \"%s\"\n", t->valuestring);
