@@ -32,6 +32,7 @@
 // FIXME program.h requires SDL2 just to load rom.bin.
 // It should be replaced with something lighter.
 #include "program.h"
+#include "state.h"
 #include "base64singleline.h"
 
 #define WS_PORT 			8080
@@ -61,6 +62,20 @@ typedef enum {
 	SPEED_1X = 1,
 	SPEED_10X = 10,
 } emulation_speed_t;
+
+typedef enum {
+	END_NO = 0,
+	END_YES = 1,
+} end_action_t;
+
+typedef enum {
+	SAV_DO_NOTHING = -1,
+	SAV_SAVE = 0,
+	SAV_LOAD = 1,
+} sav_action_t;
+
+end_action_t g_end_action = END_NO;
+sav_action_t g_sav_action = SAV_DO_NOTHING;
 
 static void hal_halt(void)
 {
@@ -221,7 +236,21 @@ static int hal_handler(void)
 	tamalib_set_button(BTN_MIDDLE, btn_buffer[BTN_MIDDLE]);
 	tamalib_set_button(BTN_RIGHT, btn_buffer[BTN_RIGHT]);
 	tamalib_set_button(BTN_TAP, btn_buffer[BTN_TAP]);
-	return 0;
+
+	char save_path[256];
+	if (g_sav_action == SAV_SAVE) {
+		state_find_next_name(save_path);
+		state_save(save_path);
+	}
+	if (g_sav_action == SAV_LOAD) {
+		state_find_last_name(save_path);
+		if (save_path[0]) {
+			state_load(save_path);
+		}
+	}
+	g_sav_action = SAV_DO_NOTHING;
+
+	return g_end_action;
 }
 
 static hal_t hal = {
@@ -366,6 +395,41 @@ int handle_ws_event_spd(const cJSON *json) {
 		return status;
 }
 
+int handle_ws_event_end() {
+	g_end_action = END_YES;
+	return 0;
+}
+
+int handle_ws_event_sav(const cJSON *json) {
+	const cJSON *a = NULL;
+	int status = 0;
+
+	a = cJSON_GetObjectItemCaseSensitive(json, "a");
+	if (a == NULL) {
+		fprintf(stderr, "sav event: no item \"a\"\n");
+		status = 1;
+		goto end;
+	}
+	if (!cJSON_IsNumber(a)) {
+		fprintf(stderr, "sav event: item \"a\" has invalid type\n");
+		status = 1;
+		goto end;
+	}
+	const int sav_code = a->valueint;
+	if (!(sav_code == SAV_SAVE || sav_code == SAV_LOAD))
+	{
+		fprintf(stderr, "sav event: invalid button code \"a\": %d\n",
+		        sav_code);
+		status = 1;
+		goto end;
+	}
+
+	g_sav_action = sav_code;
+
+	end:
+		return status;
+}
+
 int handle_ws_message(const unsigned char *msg)
 {
 	const cJSON *t = NULL;
@@ -412,6 +476,12 @@ int handle_ws_message(const unsigned char *msg)
 	}
 	else if (!strcmp(t->valuestring, "spd")) {
 		handle_ws_event_spd(e);
+	}
+	else if (!strcmp(t->valuestring, "end")) {
+		handle_ws_event_end();
+	}
+	else if (!strcmp(t->valuestring, "sav")) {
+		handle_ws_event_sav(e);
 	}
 	else {
 		fprintf(stderr, "WS message: unknown event type \"%s\"\n", t->valuestring);

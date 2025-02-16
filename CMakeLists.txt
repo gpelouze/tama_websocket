@@ -46,6 +46,8 @@ add_executable(tama_websocket
     src/hal_types.h
     src/main.c
     src/program.c
-    src/program.h)
+    src/program.h
+    src/state.c
+    src/state.h)
 
 target_link_libraries(tama_websocket SDL2 cjson)

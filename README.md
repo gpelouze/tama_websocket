@@ -1,6 +1,6 @@
 # Tama Websocket - Tamagotchi P1 emulator websocket server
 
-Tama Websocket is a Tamagotchi P1 emulator with a websocket interface. It leverages [TamaLib](https://github.com/jcrona/tamalib/) and [wsServer](https://github.com/Theldus/wsServer).
+Tama Websocket is a Tamagotchi P1 emulator with a websocket interface. It leverages [TamaLib](https://github.com/jcrona/tamalib/), parts of [TamaTool](https://github.com/jcrona/tamatool/), and [wsServer](https://github.com/Theldus/wsServer).
 
 ## Building
 
@@ -64,6 +64,8 @@ Events summary:
 | `btn`      | client | button press        |
 | `mod`      | client | execution mode      |
 | `spd`      | client | execution speed     |
+| `end`      | client | end emulation       |
+| `sav`      | client | save and load state |
 
 ### Server events
 
@@ -205,8 +207,18 @@ Attributes:
   - 1: run / resume
   - 2: enter step mode
   - 3: execute next instruction or call
-  - 4: pause after next call 
+  - 4: pause after next call
   - 5: pause after next return
+
+Example:
+```json
+{
+  "t": "mod",
+  "e": {
+    "m": 4
+  }
+}
+```
 
 #### `spd` - execution speed
 
@@ -216,6 +228,46 @@ Attributes:
   - 0: unlimited
   - 1: 1x
   - 10: 10x
+
+Example:
+```json
+{
+  "t": "spd",
+  "e": {
+    "s": 10
+  }
+}
+```
+
+#### `end` - end emulation
+
+Attributes: none
+
+Example:
+```json
+{
+  "t": "end",
+  "e": {}
+}
+```
+
+#### `sav` - save and load state
+
+Attributes:
+
+- `a`: action
+  - 0: save
+  - 1: load
+
+Example:
+```json
+{
+  "t": "sav",
+  "e": {
+    "a": 0
+  }
+}
+```
 
 ## License
 
