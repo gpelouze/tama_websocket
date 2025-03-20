@@ -24,6 +24,8 @@ LABEL org.opencontainers.image.description="Tamagotchi P1 emulator websocket ser
 EXPOSE 8080
 ENV TAMA_WS_HOST=0.0.0.0
 
+HEALTHCHECK CMD netstat -an | grep 8080
+
 RUN apk add --no-cache sdl2 cjson
 USER 1000
 
