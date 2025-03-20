@@ -42,6 +42,12 @@
 #define FRM_FIN 128
 #define FRM_MSK 128
 
+#define BASE64_STATE_SIZE 1304
+// The size of a base-64 encoded state snapshot. Calculated from the size in
+// bytes (63 + INT_SLOT_NUM * 3 + MEM_RAM_SIZE + MEM_IO_SIZE = 977; see
+// state.h) and the formula ceil(n_bytes / 3) * 4. This is used to validate the
+// payload by the client on lod events.
+
 #define ROM_PATH			"rom.bin"
 
 static u12_t *g_program = NULL;		// The actual program that is executed
@@ -63,19 +69,10 @@ typedef enum {
 	SPEED_10X = 10,
 } emulation_speed_t;
 
-typedef enum {
-	END_NO = 0,
-	END_YES = 1,
-} end_action_t;
-
-typedef enum {
-	SAV_DO_NOTHING = -1,
-	SAV_SAVE = 0,
-	SAV_LOAD = 1,
-} sav_action_t;
-
-end_action_t g_end_action = END_NO;
-sav_action_t g_sav_action = SAV_DO_NOTHING;
+bool g_end_action = false;
+bool g_sav_action = false;
+bool g_lod_action = false;
+char *g_load_state_save_b64;
 
 static void hal_halt(void)
 {
@@ -230,6 +227,31 @@ static void hal_play_frequency(bool_t en)
 	}
 }
 
+static void state_save_to_ws()
+{
+	size_t save_size;
+	const uint8_t *save = state_save(&save_size);
+	unsigned char *save_b64 = base64singleline_encode(save, save_size, NULL);
+	char msg_template[] = "{\"t\":\"sav\",\"e\":{\"s\":\"%s\"}}";
+	size_t msg_size = snprintf(NULL, 0, msg_template, save_b64);
+	msg_size++;
+	char *msg = (char *)malloc(msg_size);
+	snprintf(msg, msg_size, msg_template, save_b64);
+	ws_sendframe_bcast(WS_PORT, msg, msg_size - 1, FRM_TXT);
+}
+
+static void state_load_from_ws()
+{
+	size_t out_len;
+	uint8_t *save = base64_decode(
+		(unsigned char *) g_load_state_save_b64,
+		strlen(g_load_state_save_b64),
+		&out_len);
+	state_load(save);
+	free(g_load_state_save_b64);
+	free(save);
+}
+
 static int hal_handler(void)
 {
 	tamalib_set_button(BTN_LEFT, btn_buffer[BTN_LEFT]);
@@ -237,18 +259,15 @@ static int hal_handler(void)
 	tamalib_set_button(BTN_RIGHT, btn_buffer[BTN_RIGHT]);
 	tamalib_set_button(BTN_TAP, btn_buffer[BTN_TAP]);
 
-	char save_path[256];
-	if (g_sav_action == SAV_SAVE) {
-		state_find_next_name(save_path);
-		state_save(save_path);
+	if (g_sav_action == true) {
+		state_save_to_ws();
+        g_sav_action = false;
 	}
-	if (g_sav_action == SAV_LOAD) {
-		state_find_last_name(save_path);
-		if (save_path[0]) {
-			state_load(save_path);
-		}
+
+	if (g_lod_action == true) {
+		state_load_from_ws();
+		g_lod_action = false;
 	}
-	g_sav_action = SAV_DO_NOTHING;
 
 	return g_end_action;
 }
@@ -396,35 +415,49 @@ int handle_ws_event_spd(const cJSON *json) {
 }
 
 int handle_ws_event_end() {
-	g_end_action = END_YES;
+	g_end_action = true;
 	return 0;
 }
 
 int handle_ws_event_sav(const cJSON *json) {
-	const cJSON *a = NULL;
+	g_sav_action = true;
+	return 0;
+}
+
+int handle_ws_event_lod(const cJSON *json) {
+	const cJSON *s = NULL;
 	int status = 0;
 
-	a = cJSON_GetObjectItemCaseSensitive(json, "a");
-	if (a == NULL) {
-		fprintf(stderr, "sav event: no item \"a\"\n");
+	s = cJSON_GetObjectItemCaseSensitive(json, "s");
+	if (s == NULL) {
+		fprintf(stderr, "lod event: no item \"s\"\n");
 		status = 1;
 		goto end;
 	}
-	if (!cJSON_IsNumber(a)) {
-		fprintf(stderr, "sav event: item \"a\" has invalid type\n");
+	if (!cJSON_IsString(s)) {
+		fprintf(stderr, "lod event: item \"s\" has invalid type\n");
 		status = 1;
 		goto end;
 	}
-	const int sav_code = a->valueint;
-	if (!(sav_code == SAV_SAVE || sav_code == SAV_LOAD))
-	{
-		fprintf(stderr, "sav event: invalid button code \"a\": %d\n",
-		        sav_code);
+	if (s->valuestring == NULL) {
+		fprintf(stderr, "lod event: item \"s\" is a null pointer\n");
+		status = 1;
+		goto end;
+	}
+	const unsigned long int len = strlen(s->valuestring);
+	if (len != BASE64_STATE_SIZE) {
+		fprintf(
+			stderr,
+			"lod event: item \"s\" is the wrong size: expected %d but got %lu\n",
+			BASE64_STATE_SIZE,
+			len);
 		status = 1;
 		goto end;
 	}
 
-	g_sav_action = sav_code;
+	g_load_state_save_b64 = (char *)malloc(len + 1);
+	strcpy(g_load_state_save_b64, s->valuestring);
+	g_lod_action = true;
 
 	end:
 		return status;
@@ -482,6 +515,9 @@ int handle_ws_message(const unsigned char *msg)
 	}
 	else if (!strcmp(t->valuestring, "sav")) {
 		handle_ws_event_sav(e);
+	}
+	else if (!strcmp(t->valuestring, "lod")) {
+		handle_ws_event_lod(e);
 	}
 	else {
 		fprintf(stderr, "WS message: unknown event type \"%s\"\n", t->valuestring);
