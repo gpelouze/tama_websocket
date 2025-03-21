@@ -14,5 +14,4 @@ _deps
 CMakeUserPresets.json
 
 cmake-build-*
-rom.bin
 tama_websocket

@@ -51,8 +51,6 @@
 // The size of a base-64 encoded state snapshot. Measured. This is used to
 // validate the payload by the client on rom events.
 
-#define ROM_PATH			"rom.bin"
-
 static u12_t *g_program = NULL;		// The actual program that is executed
 static uint32_t g_program_size = 0;
 
