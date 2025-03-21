@@ -26,22 +26,22 @@ The server can be accessed at <ws://localhost:8080>.
 
 ## Docker
 
-Build
-
-```shell
-docker build . -t tama_websocket
-```
-
 Run
 
 ```shell
 docker run \
   --rm --init \
   -p "127.0.0.1:8080:8080" \
-  tama_websocket
+  ghcr.io/gpelouze/tama_websocket:latest
 ```
 
 The server can be accessed at <ws://localhost:8080>.
+
+To build the image locally, run:
+
+```shell
+docker build . -t tama_websocket
+```
 
 ## Websocket API
 
