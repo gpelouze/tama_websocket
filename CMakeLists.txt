@@ -20,7 +20,6 @@ project(tama_websocket C)
 
 set(CMAKE_C_STANDARD 11)
 
-find_package(SDL2 REQUIRED)
 find_package(cJSON REQUIRED)
 
 include_directories(src)
@@ -50,4 +49,4 @@ add_executable(tama_websocket
     src/state.c
     src/state.h)
 
-target_link_libraries(tama_websocket SDL2 cjson)
+target_link_libraries(tama_websocket cjson)

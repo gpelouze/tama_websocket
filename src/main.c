@@ -24,13 +24,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "tamalib/tamalib.h"
 #include "ws.h"
 #include "cjson/cJSON.h"
 
-// FIXME program.h requires SDL2 just to load rom.bin.
-// It should be replaced with something lighter.
 #include "program.h"
 #include "state.h"
 #include "base64singleline.h"
@@ -47,6 +46,10 @@
 // bytes (63 + INT_SLOT_NUM * 3 + MEM_RAM_SIZE + MEM_IO_SIZE = 977; see
 // state.h) and the formula ceil(n_bytes / 3) * 4. This is used to validate the
 // payload by the client on lod events.
+
+#define BASE64_ROM_SIZE 16384
+// The size of a base-64 encoded state snapshot. Measured. This is used to
+// validate the payload by the client on rom events.
 
 #define ROM_PATH			"rom.bin"
 
@@ -73,6 +76,7 @@ bool g_end_action = false;
 bool g_sav_action = false;
 bool g_lod_action = false;
 char *g_load_state_save_b64;
+char *g_rom_b64 = NULL;
 
 static void hal_halt(void)
 {
@@ -299,6 +303,43 @@ void onclose(ws_cli_conn_t  client)
 	printf("Disconnected!\n");
 }
 
+int handle_ws_event_rom(const cJSON *json) {
+	const cJSON *r = NULL;
+	int status = 0;
+
+	r = cJSON_GetObjectItemCaseSensitive(json, "r");
+	if (r == NULL) {
+		fprintf(stderr, "lod event: no item \"r\"\n");
+		status = 1;
+		goto end;
+	}
+	if (!cJSON_IsString(r)) {
+		fprintf(stderr, "lod event: item \"r\" has invalid type\n");
+		status = 1;
+		goto end;
+	}
+	if (r->valuestring == NULL) {
+		fprintf(stderr, "lod event: item \"r\" is a null pointer\n");
+		status = 1;
+		goto end;
+	}
+	const unsigned long int len = strlen(r->valuestring);
+	if (len != BASE64_ROM_SIZE) {
+		fprintf(
+			stderr,
+			"lod event: item \"r\" is the wrong size: expected %d but got %lu\n",
+			BASE64_ROM_SIZE,
+			len);
+		status = 1;
+		goto end;
+	}
+
+	g_rom_b64 = r->valuestring;
+
+	end:
+		return status;
+}
+
 int handle_ws_event_btn(const cJSON *json) {
 	const cJSON *b = NULL;
 	const cJSON *s = NULL;
@@ -501,7 +542,10 @@ int handle_ws_message(const unsigned char *msg)
 		goto end;
 	}
 
-	if (!strcmp(t->valuestring, "btn")) {
+	if (!strcmp(t->valuestring, "rom")) {
+		handle_ws_event_rom(e);
+	}
+	else if (!strcmp(t->valuestring, "btn")) {
 		handle_ws_event_btn(e);
 	}
 	else if (!strcmp(t->valuestring, "mod")) {
@@ -557,7 +601,11 @@ int main (int argc, const char * argv[]) {
 
 	ws_socket(&ws);
 
-	g_program = program_load(ROM_PATH, &g_program_size);
+	// Wait for the program to be sent through the websocket
+	while (g_rom_b64 == NULL) {
+		sleep(1);
+	}
+	g_program = program_load_b64(g_rom_b64, &g_program_size);
 
     tamalib_register_hal(&hal);
     tamalib_init(g_program, NULL, 1000000);

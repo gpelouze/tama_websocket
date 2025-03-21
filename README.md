@@ -4,7 +4,7 @@ Tama Websocket is a Tamagotchi P1 emulator with a websocket interface. It levera
 
 ## Building
 
-1. Add [libSDL2](https://wiki.libsdl.org/SDL2/Installation) and [libcJSON](https://github.com/DaveGamble/cJSON) to your system.
+1. Add [libcJSON](https://github.com/DaveGamble/cJSON) to your system.
 
 2. Clone and build this project:
 
@@ -15,8 +15,6 @@ cmake . && make
 ```
 
 ## Usage
-
-Tama Websocket requires a Tamagotchi P1 ROM named `rom.bin` to be present in the same folder as the executable. Refer to the [TamaTool documentation](https://github.com/jcrona/tamatool/blob/master/README.md#usage) for more information.
 
 To start Tama Websocket, run:
 
@@ -40,7 +38,7 @@ Run
 docker run \
   --rm --init \
   -v ./rom.bin:/app/rom.bin \
-  -p "127.0.0.1:8080:8080"
+  -p "127.0.0.1:8080:8080" \
   tama_websocket
 ```
 
@@ -53,21 +51,27 @@ JSON-encoded events are sent and received through the websocket. Events have exa
 - `t` (string): the type of the event
 - `e` (object): the event payload
 
-Events summary:
+Server events summary:
 
-| Event type | Sender | Description        |
-|------------|--------|--------------------|
-| `scr`      | server | screen update      |
-| `frq`      | server | frequency playback |
-| `log`      | server | log message        |
-| `end`      | server | emulation end      |
-| `sav`      | server | save state         |
-| `btn`      | client | button press       |
-| `mod`      | client | execution mode     |
-| `spd`      | client | execution speed    |
-| `end`      | client | end emulation      |
-| `sav`      | client | save state         |
-| `lod`      | client | load state         |
+| Event type | Description                  |
+|------------|------------------------------|
+| `scr`      | screen update                |
+| `frq`      | frequency playback           |
+| `log`      | log message                  |
+| `sav`      | save state                   |
+| `end`      | emulation end                |
+
+Client events summary:
+
+| Event type | Description                  |
+|------------|------------------------------|
+| `rom`      | load ROM and start emulation |
+| `btn`      | button press                 |
+| `mod`      | execution mode               |
+| `spd`      | execution speed              |
+| `sav`      | save state                   |
+| `lod`      | load state                   |
+| `end`      | end emulation                |
 
 ### Server events
 
@@ -194,6 +198,32 @@ Example:
 ```
 
 ### Client event
+
+#### `rom` - load ROM and start emulation
+
+Attributes:
+
+- `r` (string): base64-encoded ROM
+
+Example:
+
+```json
+{
+  "t": "rom",
+  "e": {
+    "r": "..."
+  }
+}
+```
+
+The value for `r` (`...` in the above example) should be a Tamagotchi P1 ROM, encoded as Base64.
+The Base64-encoded ROM can be derived from a binary-format ROM (e.g. `rom.bin`) by running the following command:
+
+```shell
+base64 rom.bin -w0
+```
+
+Refer to the [TamaTool documentation](https://github.com/jcrona/tamatool/blob/master/README.md#usage) for more information about the ROM.
 
 #### `btn` - button press
 

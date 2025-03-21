@@ -2,7 +2,7 @@ FROM alpine:latest AS build
 
 WORKDIR /build
 
-RUN apk add --no-cache cmake make clang sdl2-dev cjson cjson-dev
+RUN apk add --no-cache cmake make clang cjson cjson-dev
 
 COPY CMakeLists.txt .
 COPY src/ src/
@@ -26,7 +26,7 @@ ENV TAMA_WS_HOST=0.0.0.0
 
 HEALTHCHECK CMD netstat -an | grep 8080
 
-RUN apk add --no-cache sdl2 cjson
+RUN apk add --no-cache cjson
 USER 1000
 
 WORKDIR /app

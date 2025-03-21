@@ -1,4 +1,25 @@
 /*
+ * Tama Websocket - Tamagotchi P1 emulator websocket server
+ *
+ * Copyright (C) 2025 Gabriel Pelouze <gabriel@pelouze.net>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ *
+ * This file was derived from the file state.c of the TamaTool project, which
+ * is distributed with the following copyright notice:
+ *
  * TamaTool - A cross-platform Tamagotchi P1 explorer
  *
  * Copyright (C) 2021 Jean-Christophe Rona <jc@rona.fr>
@@ -20,137 +41,40 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 
-#include "SDL2/SDL.h"
+#include <base64.h>
 
 #include "program.h"
 
-typedef struct map {
-	uint32_t ref;
-	uint32_t width;
-	uint32_t height;
-} map_t;
-
-static map_t g_map[MAX_SPRITES];
-
-
-u12_t * program_load(char *path, uint32_t *size)
+u12_t * program_load_b64(char *rom_b64, uint32_t *size)
 {
-	SDL_RWops *f;
 	uint32_t i;
-	uint8_t buf[2];
+	size_t rom_len;
+	uint8_t *rom;
 	u12_t *program;
 
-	f = SDL_RWFromFile(path, "r");
-	if (f == NULL) {
-		fprintf(stderr, "FATAL: Cannot open ROM \"%s\" !\n", path);
+	if (rom_b64 == NULL) {
+		fprintf(stderr, "FATAL: Cannot load ROM!\n");
 		return NULL;
 	}
 
-	*size = SDL_RWsize(f)/2;
+	rom = base64_decode(
+		(unsigned char *) rom_b64,
+		strlen(rom_b64),
+		&rom_len);
 
-	//fprintf(stdout, "ROM size is %u * 12bits\n", *size);
+	*size = rom_len / 2;
 
-	program = (u12_t *) SDL_malloc(*size * sizeof(u12_t));
+	program = (u12_t *) malloc(*size * sizeof(u12_t));
 	if (program == NULL) {
-		fprintf(stderr, "FATAL: Cannot allocate ROM memory !\n");
-		SDL_RWclose(f);
+		fprintf(stderr, "FATAL: Cannot allocate ROM memory!\n");
 		return NULL;
 	}
 
 	for (i = 0; i < *size; i++) {
-		if (SDL_RWread(f, buf, 2, 1) != 1) {
-			fprintf(stderr, "FATAL: Cannot read program from ROM !\n");
-			SDL_free(program);
-			SDL_RWclose(f);
-			return NULL;
-		}
-
-		program[i] = buf[1] | ((buf[0] & 0xF) << 8);
+		program[i] = rom[2*i+1] | ((rom[2*i] & 0xF) << 8);
 	}
 
-	SDL_RWclose(f);
 	return program;
-}
-
-void program_save(char *path, u12_t *program, uint32_t size)
-{
-	SDL_RWops *f;
-	uint32_t i;
-	uint8_t buf[2];
-
-	f = SDL_RWFromFile(path, "w");
-	if (f == NULL) {
-		fprintf(stderr, "FATAL: Cannot open ROM \"%s\" !\n", path);
-		return;
-	}
-
-	for (i = 0; i < size; i++) {
-		buf[0] = (program[i] >> 8) & 0xF;
-		buf[1] = program[i] & 0xFF;
-
-		if (SDL_RWwrite(f, buf, 2, 1) != 1) {
-			fprintf(stderr, "FATAL: Cannot write program from ROM !\n");
-			SDL_RWclose(f);
-			return;
-		}
-	}
-
-	SDL_RWclose(f);
-}
-
-void program_to_header(u12_t *program, uint32_t size)
-{
-	uint32_t i;
-
-	fprintf(stdout, "static const u12_t g_program[] = {");
-
-	for (i = 0; i < size; i++) {
-		if (!(i % 16)) {
-			fprintf(stdout, "\n\t");
-		} else {
-			fprintf(stdout, " ");
-		}
-
-		fprintf(stdout, "0x%03X,", program[i]);
-	}
-
-	fprintf(stdout, "\n};\n");
-}
-
-static uint32_t generate_data_map(map_t *map, u12_t *program, uint32_t size, uint32_t *max_width)
-{
-	uint32_t i;
-	uint32_t count = 0;
-	uint32_t width = 0;
-
-	*max_width = 0;
-
-	/* Parse the program to get a map */
-	for (i = 0; i < size; i++) {
-		if ((program[i] >> 8) == 0x9) {
-			/* LBPX */
-			if (width == 0) {
-			}
-
-			width++;
-		} else {
-			/* RETD */
-			if ((program[i] >> 8) == 0x1 && width != 0) {
-				map[count].ref = i - width;
-				map[count].width = width + 1;
-				map[count].height = 8;
-
-				if (map[count].width > *max_width) {
-					*max_width = map[count].width;
-				}
-
-				count++;
-			}
-
-			width = 0;
-		}
-	}
-
-	return count;
 }
