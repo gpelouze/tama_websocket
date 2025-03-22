@@ -107,6 +107,7 @@ static void hal_log(log_level_t level, char *buff, ...)
 	char *msg = (char *)malloc(msg_size);
 	snprintf(msg, msg_size, msg_template, level, buff);
 	ws_sendframe_bcast(WS_PORT, msg, msg_size - 1, FRM_TXT);
+	free(msg);
 
 	va_end(arglist);
 }
@@ -165,7 +166,9 @@ unsigned char * bool_t_to_base64(const bool_t *src, const size_t len,
             new_arr[i] |= src[i*8+(7-j)] << j;
 		}
 	}
-	return base64singleline_encode(new_arr, new_len, out_len);
+	unsigned char *out = base64singleline_encode(new_arr, new_len, out_len);
+	free(new_arr);
+	return out;
 }
 
 static void update_screen(const bool skip_identical_frames)
@@ -191,6 +194,8 @@ static void update_screen(const bool skip_identical_frames)
         ws_sendframe_bcast(WS_PORT, msg, msg_size - 1, FRM_TXT);
         strcpy(previous_msg, msg);
 	}
+	free(matrix_b64);
+	free(icon_b64);
 }
 
 static void hal_update_screen(void)
@@ -226,13 +231,14 @@ static void hal_play_frequency(bool_t en)
 		char *msg = (char *)malloc(msg_size);
 		snprintf(msg, msg_size, msg_template, current_freq, sin_pos, is_audio_playing);
 		ws_sendframe_bcast(WS_PORT, msg, msg_size - 1, FRM_TXT);
+		free(msg);
 	}
 }
 
 static void state_save_to_ws()
 {
 	size_t save_size;
-	const uint8_t *save = state_save(&save_size);
+	uint8_t *save = state_save(&save_size);
 	unsigned char *save_b64 = base64singleline_encode(save, save_size, NULL);
 	char msg_template[] = "{\"t\":\"sav\",\"e\":{\"s\":\"%s\"}}";
 	size_t msg_size = snprintf(NULL, 0, msg_template, save_b64);
@@ -240,6 +246,9 @@ static void state_save_to_ws()
 	char *msg = (char *)malloc(msg_size);
 	snprintf(msg, msg_size, msg_template, save_b64);
 	ws_sendframe_bcast(WS_PORT, msg, msg_size - 1, FRM_TXT);
+	free(save);
+	free(save_b64);
+	free(msg);
 }
 
 static void state_load_from_ws()
@@ -332,7 +341,8 @@ int handle_ws_event_rom(const cJSON *json) {
 		goto end;
 	}
 
-	g_rom_b64 = r->valuestring;
+	g_rom_b64 = (char *)malloc(len + 1);
+	strcpy(g_rom_b64, r->valuestring);
 
 	end:
 		return status;
@@ -604,6 +614,7 @@ int main (int argc, const char * argv[]) {
 		sleep(1);
 	}
 	g_program = program_load_b64(g_rom_b64, &g_program_size);
+	free(g_rom_b64);
 
     tamalib_register_hal(&hal);
     tamalib_init(g_program, NULL, 1000000);
