@@ -332,7 +332,8 @@ int handle_ws_event_rom(const cJSON *json) {
 		goto end;
 	}
 
-	g_rom_b64 = r->valuestring;
+	g_rom_b64 = (char *)malloc(len + 1);
+	strcpy(g_rom_b64, r->valuestring);
 
 	end:
 		return status;
